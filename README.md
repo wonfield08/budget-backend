@@ -41,51 +41,83 @@ npm run dev
 
 기본적으로 `http://localhost:3000`에서 뜬다.
 
-모든 API(회원가입/로그인 제외)는 `Authorization: Bearer <accessToken>` 헤더가 필요하다.
+## API 개요
 
-## 인증 API
+- **인증**: `/auth/*`를 제외한 모든 엔드포인트는 `Authorization: Bearer <accessToken>` 헤더가 필요하다.
+  토큰은 `POST /auth/login` 또는 `POST /auth/signup` 응답의 `accessToken`.
+- **응답 형식**: 성공 시 항상 `{ "success": true, "data": <실제 응답> }`로 감싸서 내려간다
+  ([ResponseInterceptor](src/common/interceptors/response.interceptor.ts)). 아래 표의 "응답"은 이 `data` 안에 들어가는
+  내용만 적었다. 예외는 `/metrics` (Prometheus가 읽는 순수 텍스트라 감싸지 않음).
+- **에러 형식**: `{ "success": false, "statusCode", "path", "timestamp", "message" }`
+  ([AllExceptionsFilter](src/common/filters/all-exceptions.filter.ts)).
+- **금액 필드**: `amount`/`balance`/`spent`/`remaining` 등은 전부 `BigInt`(원 단위 정수)로 저장되고,
+  응답 직렬화 시 문자열로 변환된다 (JS의 `Number`가 안전하게 다룰 수 없는 큰 값이라도 정밀도 손실이 없게 하기 위함,
+  [main.ts](src/main.ts) 참고). 요청 바디에 보낼 때는 숫자(`number`)로 보내면 된다.
+- **소유권 검사**: 모든 리소스(계좌/카테고리/거래/예산/업로드)는 `userId`로 스코프되어 있어서,
+  다른 사용자의 리소스 id를 넣으면 `403 Forbidden` 또는 `404 Not Found`가 난다.
 
-- `POST /auth/signup` — `{ email, password }`
-- `POST /auth/login` — `{ email, password }` → `{ accessToken, user }`
-- `GET /users/me`
+### 인증
 
-## accounts
+| Method | Path | Body | 응답 |
+|---|---|---|---|
+| POST | `/auth/signup` | `{ email, password }` | `{ accessToken, user }` |
+| POST | `/auth/login` | `{ email, password }` | `{ accessToken, user }` |
+| GET | `/users/me` | – | 로그인한 사용자 정보 |
 
-- `POST /accounts` — `{ name, type, balance?, currency? }`
-- `GET /accounts`, `GET /accounts/:id`
-- `PATCH /accounts/:id` — `{ name?, type?, currency? }` (balance는 거래를 통해서만 변경)
-- `DELETE /accounts/:id`
+### accounts (계좌)
 
-## categories
+| Method | Path | Body | 비고 |
+|---|---|---|---|
+| POST | `/accounts` | `{ name, type, balance?, currency? }` | `type`: `CASH`\|`BANK`\|`CARD` |
+| GET | `/accounts` | – | 사용자의 전체 계좌 목록 |
+| GET | `/accounts/:id` | – | |
+| PATCH | `/accounts/:id` | `{ name?, type?, currency? }` | `balance`는 여기서 못 바꾼다 — 거래를 통해서만 변경됨 |
+| DELETE | `/accounts/:id` | – | |
 
-- `POST /categories` — `{ name, type, parentId?, icon?, color? }`
-- `GET /categories` — `parentId` 기준 트리 형태로 반환
-- `GET /categories/:id`, `PATCH /categories/:id`, `DELETE /categories/:id`
+### categories (카테고리)
 
-## transactions
+| Method | Path | Body | 비고 |
+|---|---|---|---|
+| POST | `/categories` | `{ name, type, parentId?, icon?, color? }` | `type`: `INCOME`\|`EXPENSE` |
+| GET | `/categories` | – | `parentId` 기준 트리 형태로 반환 |
+| GET | `/categories/:id` | – | |
+| PATCH | `/categories/:id` | `{ name?, type?, parentId?, icon?, color? }` | |
+| DELETE | `/categories/:id` | – | |
 
-- `POST /transactions` — `{ accountId, categoryId?, title, amount, type, transferAccountId?, date, memo?, isAuto?, source? }`
-  - `type`이 INCOME/EXPENSE/TRANSFER 중 무엇이냐에 따라 계좌 잔액이 자동으로 갱신된다.
-- `GET /transactions` — 쿼리: `accountId`, `categoryId`, `type`, `from`, `to`, `skip`, `take`
-- `GET /transactions/:id`
-- `PATCH /transactions/:id` — 계좌/금액/타입을 바꾸면 기존 잔액 반영분을 되돌리고 새로 반영한다.
-- `DELETE /transactions/:id` — 삭제 시 해당 거래의 잔액 반영분을 되돌린다.
+### transactions (거래)
 
-## budgets
+| Method | Path | Body / Query | 비고 |
+|---|---|---|---|
+| POST | `/transactions` | `{ accountId, categoryId?, title, amount, type, transferAccountId?, date, memo?, isAuto?, source? }` | `type`(`INCOME`\|`EXPENSE`\|`TRANSFER`)에 따라 계좌 잔액이 자동 갱신됨 |
+| GET | `/transactions` | 쿼리: `accountId?, categoryId?, type?, from?, to?, skip?, take?` | |
+| GET | `/transactions/:id` | – | |
+| PATCH | `/transactions/:id` | 위 생성 필드 중 일부 | 계좌/금액/타입 변경 시 기존 잔액 반영분을 되돌리고 새로 반영 |
+| DELETE | `/transactions/:id` | – | 삭제 시 해당 거래의 잔액 반영분을 되돌림 |
 
-- `POST /budgets` — `{ categoryId, amount, period, startDate }` (categoryId는 EXPENSE 카테고리만 가능)
-- `GET /budgets`, `GET /budgets/:id` — `periodStart`/`periodEnd`/`spent`/`remaining`/`usageRate` 포함
-- `PATCH /budgets/:id`, `DELETE /budgets/:id`
+### budgets (예산)
 
-## uploads
+| Method | Path | Body | 비고 |
+|---|---|---|---|
+| POST | `/budgets` | `{ categoryId, amount, period, startDate }` | `categoryId`는 EXPENSE 카테고리만 허용, `period`: `MONTHLY`\|`WEEKLY` |
+| GET | `/budgets` | – | 각 항목에 `periodStart`, `periodEnd`, `spent`, `remaining`, `usageRate` 포함 |
+| GET | `/budgets/:id` | – | 위와 동일 |
+| PATCH | `/budgets/:id` | `{ categoryId?, amount?, period?, startDate? }` | |
+| DELETE | `/budgets/:id` | – | |
 
-- `POST /uploads` — `multipart/form-data`, 필드명 `file` (CSV, 최대 5MB)
-  - CSV 헤더: `date,type,amount,memo,category` (`memo`, `category`는 선택)
-  - `type`은 `INCOME`/`EXPENSE`만 지원, `category`는 이름이 같은(대소문자 무시) 기존 카테고리와 자동 매칭
-  - 업로드 시 `UploadBatch`(status=PENDING) + 파싱된 행(`UploadRow`)만 생성되고, 아직 거래는 만들어지지 않는다.
-- `GET /uploads`, `GET /uploads/:id` — `:id`는 파싱된 행(`rows`) 포함
-- `POST /uploads/:id/confirm` — `{ accountId }` → 행들을 실제 transactions로 일괄 생성하고 계좌 잔액 반영, batch를 CONFIRMED로 변경
-- `POST /uploads/:id/cancel` — batch를 CANCELLED로 변경(거래 생성 안 함)
+### uploads (명세서 업로드)
+
+거래내역을 일괄 등록하는 플로우: 업로드 → (필요 시 행별 보정) → 확정. 이 API 자체는 CSV만 받는다 —
+프론트엔드가 엑셀(XLSX/XLS) 파일도 지원하지만, 클라이언트에서 CSV로 변환한 뒤 보낸다.
+
+| Method | Path | Body | 비고 |
+|---|---|---|---|
+| POST | `/uploads` | `multipart/form-data`, 필드명 `file` (CSV, 최대 5MB) | 헤더: `date,type,amount,memo,category` (`memo`,`category` 선택). `type`은 `INCOME`\|`EXPENSE`만. `category`는 이름이 같은(대소문자 무시) 기존 카테고리와 자동 매칭. `UploadBatch`(status=PENDING) + 파싱된 `UploadRow`들만 생성되고, 아직 거래는 안 만들어짐 |
+| GET | `/uploads` | – | 사용자의 업로드 배치 목록 |
+| GET | `/uploads/:id` | – | 파싱된 행(`rows`) 포함 |
+| PATCH | `/uploads/:id/rows/:rowId` | `{ categoryId }` | 확정 전 미리보기 단계에서 자동 분류가 틀린 행의 카테고리를 고칠 때. `PENDING` 배치만 가능 |
+| DELETE | `/uploads/:id/rows/:rowId` | – | 확정 전 특정 행을 배치에서 제외(중복이거나 원치 않는 행). `PENDING` 배치만 가능, `rowCount`도 같이 감소 |
+| POST | `/uploads/:id/confirm` | `{ accountId }` | 남은 행들을 실제 `transactions`로 일괄 생성하고 계좌 잔액 반영, batch를 `CONFIRMED`로 변경 |
+| POST | `/uploads/:id/cancel` | – | batch를 `CANCELLED`로 변경 (거래 생성 안 함) |
 
 ## Docker Compose 배포 (온프레미스 서버, 단일 노드)
 
@@ -158,8 +190,7 @@ Grafana에는 Prometheus 데이터소스와 "Budget Backend Overview" 대시보�
 
 ## 참고
 
-- 모든 금액(`amount`, `balance`)은 `BigInt`(원 단위 정수)로 저장되며,
-  응답 직렬화 시 문자열로 변환된다 ([main.ts](src/main.ts) 참고).
 - `UploadRow`는 최초 스펙에는 없었지만, 업로드 확정 전까지 파싱된 행을 보관할 곳이 필요해서
-  추가한 보조 테이블이다 ([schema.prisma](prisma/schema.prisma) 참고). 스키마가 바뀌었으니
-  로컬에서 `npm run prisma:migrate`를 다시 실행해야 한다.
+  추가한 보조 테이블이다 ([schema.prisma](prisma/schema.prisma) 참고).
+- `Transaction.title`도 최초 스펙엔 없었다 — 프론트엔드에서 거래처/제목을 `memo`와 별도로 보여줘야 해서
+  나중에 추가했다. 로컬 DB가 이 마이그레이션 이전 상태라면 `npm run prisma:migrate`를 다시 실행해야 한다.

@@ -2,8 +2,10 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   Post,
   UploadedFile,
   UseGuards,
@@ -17,6 +19,7 @@ import {
 } from '../auth/decorators/current-user.decorator';
 import { UploadsService } from './uploads.service';
 import { ConfirmUploadDto } from './dto/confirm-upload.dto';
+import { UpdateUploadRowDto } from './dto/update-upload-row.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('uploads')
@@ -45,6 +48,25 @@ export class UploadsController {
   @Get(':id')
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.uploadsService.findOne(user.userId, id);
+  }
+
+  @Patch(':id/rows/:rowId')
+  updateRow(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Param('rowId') rowId: string,
+    @Body() dto: UpdateUploadRowDto,
+  ) {
+    return this.uploadsService.updateRow(user.userId, id, rowId, dto);
+  }
+
+  @Delete(':id/rows/:rowId')
+  removeRow(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Param('rowId') rowId: string,
+  ) {
+    return this.uploadsService.removeRow(user.userId, id, rowId);
   }
 
   @Post(':id/confirm')

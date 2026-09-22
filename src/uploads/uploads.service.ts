@@ -7,6 +7,7 @@ import {
 import { TransactionType, UploadBatch } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfirmUploadDto } from './dto/confirm-upload.dto';
+import { UpdateUploadRowDto } from './dto/update-upload-row.dto';
 
 interface ParsedRow {
   rowIndex: number;
@@ -150,6 +151,59 @@ export class UploadsService {
       data: { status: 'CANCELLED' },
     });
     return this.findOne(userId, id);
+  }
+
+  // 미리보기(STEP 3) 단계에서 자동 분류가 틀린 행의 카테고리를 사용자가 직접 고칠 때 쓴다.
+  async updateRow(userId: string, batchId: string, rowId: string, dto: UpdateUploadRowDto) {
+    const batch = await this.getOwned(userId, batchId);
+    if (batch.status !== 'PENDING') {
+      throw new BadRequestException('대기(PENDING) 상태인 업로드만 수정할 수 있습니다.');
+    }
+    const row = await this.getOwnedRow(batchId, rowId);
+
+    if (dto.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!category || category.userId !== userId) {
+        throw new NotFoundException('카테고리를 찾을 수 없습니다.');
+      }
+      if (category.type !== row.type) {
+        throw new BadRequestException(
+          '카테고리 타입이 거래 타입과 일치해야 합니다.',
+        );
+      }
+    }
+
+    return this.prisma.uploadRow.update({
+      where: { id: rowId },
+      data: { categoryId: dto.categoryId ?? null },
+    });
+  }
+
+  // 미리보기(STEP 3)에서 중복이거나 제외하고 싶은 행을 확정 전에 배치에서 뺀다.
+  async removeRow(userId: string, batchId: string, rowId: string) {
+    const batch = await this.getOwned(userId, batchId);
+    if (batch.status !== 'PENDING') {
+      throw new BadRequestException('대기(PENDING) 상태인 업로드만 수정할 수 있습니다.');
+    }
+    await this.getOwnedRow(batchId, rowId);
+    await this.prisma.$transaction([
+      this.prisma.uploadRow.delete({ where: { id: rowId } }),
+      this.prisma.uploadBatch.update({
+        where: { id: batchId },
+        data: { rowCount: { decrement: 1 } },
+      }),
+    ]);
+    return this.findOne(userId, batchId);
+  }
+
+  private async getOwnedRow(batchId: string, rowId: string) {
+    const row = await this.prisma.uploadRow.findUnique({ where: { id: rowId } });
+    if (!row || row.batchId !== batchId) {
+      throw new NotFoundException('업로드 행을 찾을 수 없습니다.');
+    }
+    return row;
   }
 
   private async getOwned(userId: string, id: string): Promise<UploadBatch> {
