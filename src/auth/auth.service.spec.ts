@@ -2,6 +2,7 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { createPrismaMock, asPrismaService, MockPrismaService } from '../test/prisma-mock';
+import { DEFAULT_CATEGORIES } from '../categories/default-categories';
 
 jest.mock('bcrypt');
 
@@ -50,6 +51,22 @@ describe('AuthService', () => {
       expect(result).toEqual({
         accessToken: 'signed-token',
         user: { id: 'u1', email: 'a@a.com' },
+      });
+    });
+
+    it('가입 시 기본 카테고리를 함께 생성한다', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
+      prisma.user.create.mockResolvedValue({
+        id: 'u1',
+        email: 'a@a.com',
+        passwordHash: 'hashed-password',
+      });
+
+      await service.signup({ email: 'a@a.com', password: 'password123' });
+
+      expect(prisma.category.createMany).toHaveBeenCalledWith({
+        data: DEFAULT_CATEGORIES.map((category) => ({ ...category, userId: 'u1' })),
       });
     });
   });

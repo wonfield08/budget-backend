@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { DEFAULT_CATEGORIES } from '../categories/default-categories';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -29,6 +30,13 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     const user = await this.prisma.user.create({
       data: { email: dto.email, passwordHash },
+    });
+
+    await this.prisma.category.createMany({
+      data: DEFAULT_CATEGORIES.map((category) => ({
+        ...category,
+        userId: user.id,
+      })),
     });
 
     return this.buildAuthResponse(user.id, user.email);
