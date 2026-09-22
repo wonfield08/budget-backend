@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  MinLength,
 } from 'class-validator';
 
 // categoryId/transferAccountId는 null을 보내면 명시적으로 값을 비울 수 있다
@@ -19,6 +20,11 @@ export class UpdateTransactionDto {
   @IsOptional()
   @IsString()
   categoryId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  title?: string;
 
   @IsOptional()
   @IsInt()

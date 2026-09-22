@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  MinLength,
 } from 'class-validator';
 
 export class CreateTransactionDto {
@@ -16,6 +17,10 @@ export class CreateTransactionDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @IsString()
+  @MinLength(1)
+  title: string;
 
   @IsInt()
   @IsPositive()

@@ -8,11 +8,13 @@ import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    MetricsModule,
     AuthModule,
     UsersModule,
     AccountsModule,

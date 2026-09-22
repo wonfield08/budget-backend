@@ -94,6 +94,7 @@ model Transaction {
   userId            String
   accountId         String
   categoryId        String?
+  title             String
   amount            BigInt
   type              TransactionType
   transferAccountId String?

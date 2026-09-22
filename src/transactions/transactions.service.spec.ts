@@ -28,6 +28,7 @@ describe('TransactionsService', () => {
         accountId: 'acc1',
         amount: 1000,
         type: 'INCOME' as any,
+        title: '테스트 거래',
         date: '2026-01-01',
       });
 
@@ -51,6 +52,7 @@ describe('TransactionsService', () => {
         accountId: 'acc1',
         amount: 1000,
         type: 'EXPENSE' as any,
+        title: '테스트 거래',
         date: '2026-01-01',
       });
 
@@ -77,6 +79,7 @@ describe('TransactionsService', () => {
         transferAccountId: 'acc2',
         amount: 500,
         type: 'TRANSFER' as any,
+        title: '테스트 거래',
         date: '2026-01-01',
       });
 
@@ -100,6 +103,7 @@ describe('TransactionsService', () => {
           accountId: 'missing',
           amount: 1000,
           type: 'INCOME' as any,
+          title: '테스트 거래',
           date: '2026-01-01',
         }),
       ).rejects.toThrow(NotFoundException);
@@ -114,6 +118,7 @@ describe('TransactionsService', () => {
           accountId: 'acc1',
           amount: 1000,
           type: 'TRANSFER' as any,
+          title: '테스트 거래',
           date: '2026-01-01',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -128,6 +133,7 @@ describe('TransactionsService', () => {
           transferAccountId: 'acc1',
           amount: 1000,
           type: 'TRANSFER' as any,
+          title: '테스트 거래',
           date: '2026-01-01',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -142,6 +148,7 @@ describe('TransactionsService', () => {
           transferAccountId: 'acc2',
           amount: 1000,
           type: 'INCOME' as any,
+          title: '테스트 거래',
           date: '2026-01-01',
         }),
       ).rejects.toThrow(BadRequestException);
@@ -161,6 +168,7 @@ describe('TransactionsService', () => {
           categoryId: 'cat1',
           amount: 1000,
           type: 'EXPENSE' as any,
+          title: '테스트 거래',
           date: '2026-01-01',
         }),
       ).rejects.toThrow(BadRequestException);

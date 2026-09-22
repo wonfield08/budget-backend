@@ -111,6 +111,7 @@ export class UploadsService {
             userId,
             accountId: dto.accountId,
             categoryId: row.categoryId,
+            title: row.memo || row.categoryName || '명세서 항목',
             amount: row.amount,
             type: row.type,
             date: row.date,

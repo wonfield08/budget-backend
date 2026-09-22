@@ -15,6 +15,11 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const corsOrigin = process.env.CORS_ORIGIN?.split(',') ?? [
+    'http://localhost:5173',
+  ];
+  app.enableCors({ origin: corsOrigin });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
