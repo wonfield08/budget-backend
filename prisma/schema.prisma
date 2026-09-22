@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  CASH
+  BANK
+  CARD
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  WEEKLY
+}
+
+enum UploadStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  budgets       Budget[]
+  uploadBatches UploadBatch[]
+
+  @@map("users")
+}
+
+model Account {
+  id       String      @id @default(cuid())
+  userId   String
+  name     String
+  type     AccountType
+  balance  BigInt      @default(0)
+  currency String      @default("KRW")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 일반 거래(입출금)에서 이 계좌를 사용한 내역
+  transactions Transaction[] @relation("AccountTransactions")
+  // 이체 거래에서 이 계좌가 "받는 쪽"으로 사용된 내역
+  transferTransactions Transaction[] @relation("TransferAccountTransactions")
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Category {
+  id       String       @id @default(cuid())
+  userId   String
+  name     String
+  type     CategoryType
+  parentId String?
+  icon     String?
+  color    String?
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
+
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@index([userId])
+  @@map("categories")
+}
+
+model Transaction {
+  id                String          @id @default(cuid())
+  userId            String
+  accountId         String
+  categoryId        String?
+  amount            BigInt
+  type              TransactionType
+  transferAccountId String?
+  date              DateTime
+  memo              String?
+  isAuto            Boolean         @default(false)
+  source            String?
+  createdAt         DateTime        @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account         Account   @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  category        Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transferAccount Account?  @relation("TransferAccountTransactions", fields: [transferAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([date])
+  @@index([accountId])
+  @@map("transactions")
+}
+
+model Budget {
+  id         String       @id @default(cuid())
+  userId     String
+  categoryId String
+  amount     BigInt
+  period     BudgetPeriod
+  startDate  DateTime
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("budgets")
+}
+
+model UploadBatch {
+  id         String       @id @default(cuid())
+  userId     String
+  filename   String
+  uploadedAt DateTime     @default(now())
+  rowCount   Int
+  status     UploadStatus @default(PENDING)
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rows UploadRow[]
+
+  @@index([userId])
+  @@map("upload_batches")
+}
+
+// 업로드된 CSV의 행을 확정(CONFIRMED) 전까지 임시로 담아두는 테이블.
+// 확정 시 이 행들을 바탕으로 실제 Transaction을 생성한다.
+model UploadRow {
+  id            String           @id @default(cuid())
+  batchId       String
+  rowIndex      Int
+  date          DateTime
+  type          TransactionType
+  amount        BigInt
+  memo          String?
+  categoryName  String?
+  categoryId    String?
+  transactionId String?
+
+  batch UploadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@map("upload_rows")
+}
