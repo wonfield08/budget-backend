@@ -104,6 +104,21 @@ npm run dev
 | PATCH | `/budgets/:id` | `{ categoryId?, amount?, period?, startDate? }` | |
 | DELETE | `/budgets/:id` | – | |
 
+### fixed-expenses (고정지출)
+
+매달 반복되는 지출(월세, 구독료 등)을 등록해두면 매일 자정 스케줄러가 `dayOfMonth`(그 달에 없는 날짜는
+말일로 클램프)에 도달한 항목을 자동으로 `transactions`에 실체화한다. 생성된 거래는
+`isAuto: true`, `source: "fixed-expense:<id>"`로 표시되어 같은 달에 중복 생성되지 않는다
+(서버가 며칠 꺼져있었어도 다음 실행 때 그 달 미생성분을 따라잡음).
+
+| Method | Path | Body | 비고 |
+|---|---|---|---|
+| POST | `/fixed-expenses` | `{ accountId, categoryId?, title, amount, dayOfMonth, memo? }` | `dayOfMonth`는 1~31, `categoryId`는 EXPENSE 카테고리만 허용 |
+| GET | `/fixed-expenses` | – | `dayOfMonth` 오름차순 |
+| GET | `/fixed-expenses/:id` | – | |
+| PATCH | `/fixed-expenses/:id` | `{ accountId?, categoryId?, title?, amount?, dayOfMonth?, memo?, active? }` | `active: false`로 일시 정지 가능 (거래 생성 대상에서 제외, 삭제하지 않고 보관) |
+| DELETE | `/fixed-expenses/:id` | – | 이미 생성된 거래는 남고, 앞으로의 자동 생성만 중단됨 |
+
 ### uploads (명세서 업로드)
 
 거래내역을 일괄 등록하는 플로우: 업로드 → (필요 시 행별 보정) → 확정. 이 API 자체는 CSV만 받는다 —

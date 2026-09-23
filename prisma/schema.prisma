@@ -46,6 +46,7 @@ model User {
   transactions  Transaction[]
   budgets       Budget[]
   uploadBatches UploadBatch[]
+  fixedExpenses FixedExpense[]
 
   @@map("users")
 }
@@ -61,9 +62,10 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // 일반 거래(입출금)에서 이 계좌를 사용한 내역
-  transactions Transaction[] @relation("AccountTransactions")
+  transactions         Transaction[]  @relation("AccountTransactions")
   // 이체 거래에서 이 계좌가 "받는 쪽"으로 사용된 내역
-  transferTransactions Transaction[] @relation("TransferAccountTransactions")
+  transferTransactions Transaction[]  @relation("TransferAccountTransactions")
+  fixedExpenses        FixedExpense[]
 
   @@index([userId])
   @@map("accounts")
@@ -82,8 +84,9 @@ model Category {
   parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children Category[] @relation("CategoryHierarchy")
 
-  transactions Transaction[]
-  budgets      Budget[]
+  transactions  Transaction[]
+  budgets       Budget[]
+  fixedExpenses FixedExpense[]
 
   @@index([userId])
   @@map("categories")
@@ -130,6 +133,29 @@ model Budget {
   @@map("budgets")
 }
 
+// 매달 반복되는 고정지출(월세, 구독료 등). dayOfMonth에 도달하면 스케줄러가
+// 자동으로 Transaction을 생성한다 (Transaction.source = "fixed-expense:<id>"
+// 로 표시해서 이미 생성된 달인지 판별).
+model FixedExpense {
+  id         String   @id @default(cuid())
+  userId     String
+  accountId  String
+  categoryId String?
+  title      String
+  amount     BigInt
+  dayOfMonth Int
+  memo       String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account  Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("fixed_expenses")
+}
+
 model UploadBatch {
   id         String       @id @default(cuid())
   userId     String
@@ -148,7 +174,7 @@ model UploadBatch {
 // 업로드된 CSV의 행을 확정(CONFIRMED) 전까지 임시로 담아두는 테이블.
 // 확정 시 이 행들을 바탕으로 실제 Transaction을 생성한다.
 model UploadRow {
-  id            String           @id @default(cuid())
+  id            String          @id @default(cuid())
   batchId       String
   rowIndex      Int
   date          DateTime

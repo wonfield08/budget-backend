@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 function createMockModel() {
   return {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
     createMany: jest.fn(),
@@ -18,6 +19,7 @@ export type MockPrismaService = {
   category: ReturnType<typeof createMockModel>;
   transaction: ReturnType<typeof createMockModel>;
   budget: ReturnType<typeof createMockModel>;
+  fixedExpense: ReturnType<typeof createMockModel>;
   uploadBatch: ReturnType<typeof createMockModel>;
   uploadRow: ReturnType<typeof createMockModel>;
   $transaction: jest.Mock;
@@ -33,6 +35,7 @@ export function createPrismaMock(): MockPrismaService {
     category: createMockModel(),
     transaction: createMockModel(),
     budget: createMockModel(),
+    fixedExpense: createMockModel(),
     uploadBatch: createMockModel(),
     uploadRow: createMockModel(),
   } as MockPrismaService;
