@@ -90,6 +90,7 @@ npm run dev
 |---|---|---|---|
 | POST | `/transactions` | `{ accountId, categoryId?, title, amount, type, transferAccountId?, date, memo?, isAuto?, source? }` | `type`(`INCOME`\|`EXPENSE`\|`TRANSFER`)에 따라 계좌 잔액이 자동 갱신됨 |
 | GET | `/transactions` | 쿼리: `accountId?, categoryId?, type?, from?, to?, skip?, take?` | |
+| GET | `/transactions/daily-summary` | 쿼리: `year, month` | 캘린더 뷰용. 해당 달의 날짜별 수입/지출 합계 `[{ date, income, expense }]` |
 | GET | `/transactions/:id` | – | |
 | PATCH | `/transactions/:id` | 위 생성 필드 중 일부 | 계좌/금액/타입 변경 시 기존 잔액 반영분을 되돌리고 새로 반영 |
 | DELETE | `/transactions/:id` | – | 삭제 시 해당 거래의 잔액 반영분을 되돌림 |

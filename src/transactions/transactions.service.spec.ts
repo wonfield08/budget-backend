@@ -235,4 +235,37 @@ describe('TransactionsService', () => {
       expect(result).toEqual({ id: 't1' });
     });
   });
+
+  describe('dailySummary', () => {
+    it('날짜별로 INCOME/EXPENSE 합계를 묶어서 날짜순으로 반환한다', async () => {
+      prisma.transaction.findMany.mockResolvedValue([
+        { date: new Date('2026-09-05T03:00:00.000Z'), type: 'EXPENSE', amount: 4000n },
+        { date: new Date('2026-09-05T10:00:00.000Z'), type: 'EXPENSE', amount: 1000n },
+        { date: new Date('2026-09-03T00:00:00.000Z'), type: 'INCOME', amount: 30000n },
+      ]);
+
+      const result = await service.dailySummary('u1', { year: 2026, month: 9 });
+
+      expect(prisma.transaction.findMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'u1',
+          date: { gte: new Date(Date.UTC(2026, 8, 1)), lt: new Date(Date.UTC(2026, 9, 1)) },
+          type: { in: ['INCOME', 'EXPENSE'] },
+        },
+        select: { date: true, type: true, amount: true },
+      });
+      expect(result).toEqual([
+        { date: '2026-09-03', income: 30000n, expense: 0n },
+        { date: '2026-09-05', income: 0n, expense: 5000n },
+      ]);
+    });
+
+    it('거래가 없으면 빈 배열을 반환한다', async () => {
+      prisma.transaction.findMany.mockResolvedValue([]);
+
+      const result = await service.dailySummary('u1', { year: 2026, month: 9 });
+
+      expect(result).toEqual([]);
+    });
+  });
 });

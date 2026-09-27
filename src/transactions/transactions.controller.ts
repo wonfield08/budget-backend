@@ -18,6 +18,7 @@ import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FindTransactionsQueryDto } from './dto/find-transactions-query.dto';
+import { FindDailySummaryQueryDto } from './dto/find-daily-summary-query.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('transactions')
@@ -38,6 +39,15 @@ export class TransactionsController {
     @Query() query: FindTransactionsQueryDto,
   ) {
     return this.transactionsService.findAll(user.userId, query);
+  }
+
+  // :id 라우트보다 먼저 선언해야 한다 — 안 그러면 "daily-summary"가 :id로 매칭됨.
+  @Get('daily-summary')
+  dailySummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindDailySummaryQueryDto,
+  ) {
+    return this.transactionsService.dailySummary(user.userId, query);
   }
 
   @Get(':id')

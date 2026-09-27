@@ -9,6 +9,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { FindTransactionsQueryDto } from './dto/find-transactions-query.dto';
+import { FindDailySummaryQueryDto } from './dto/find-daily-summary-query.dto';
+
+export interface DailySummary {
+  date: string;
+  income: bigint;
+  expense: bigint;
+}
 
 interface RelationInput {
   accountId: string;
@@ -71,6 +78,36 @@ export class TransactionsService {
       skip: query.skip,
       take: query.take,
     });
+  }
+
+  // 캘린더 화면용: 지정한 달의 날짜별 수입/지출 합계. 프론트가 들고 있는
+  // 캐시된 거래 목록(최근 6개월)과 무관하게, 어떤 달이든 DB에서 바로
+  // 집계해서 내려준다 — 캘린더에서 임의의 과거/미래 달로 이동해도 동작함.
+  async dailySummary(
+    userId: string,
+    query: FindDailySummaryQueryDto,
+  ): Promise<DailySummary[]> {
+    const start = new Date(Date.UTC(query.year, query.month - 1, 1));
+    const end = new Date(Date.UTC(query.year, query.month, 1));
+
+    const rows = await this.prisma.transaction.findMany({
+      where: {
+        userId,
+        date: { gte: start, lt: end },
+        type: { in: ['INCOME', 'EXPENSE'] },
+      },
+      select: { date: true, type: true, amount: true },
+    });
+
+    const byDay = new Map<string, DailySummary>();
+    for (const row of rows) {
+      const day = row.date.toISOString().slice(0, 10);
+      const entry = byDay.get(day) ?? { date: day, income: 0n, expense: 0n };
+      if (row.type === 'INCOME') entry.income += row.amount;
+      else entry.expense += row.amount;
+      byDay.set(day, entry);
+    }
+    return [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date));
   }
 
   async findOne(userId: string, id: string) {
